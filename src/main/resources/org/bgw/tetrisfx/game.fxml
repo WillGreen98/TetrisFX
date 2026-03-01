@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.canvas.Canvas?>
+<?import javafx.scene.control.*?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+            fx:controller="org.bgw.tetrisfx.controller.GameController"
+            prefWidth="600"
+            prefHeight="640">
+    <center>
+        <StackPane>
+            <padding>
+                <Insets top="20" right="20" bottom="20" left="20"/>
+            </padding>
+
+            <Canvas fx:id="gameCanvas"
+                    width="300"
+                    height="600"/>
+        </StackPane>
+    </center>
+
+    <right>
+        <VBox spacing="25"
+              alignment="TOP_CENTER"
+              prefWidth="200">
+
+            <padding>
+                <Insets top="20" right="20" bottom="20" left="20"/>
+            </padding>
+
+            <VBox spacing="5" alignment="CENTER">
+                <Label text="HOLD"/>
+                <Canvas fx:id="hold"
+                        width="120"
+                        height="120"/>
+            </VBox>
+
+            <VBox spacing="5" alignment="CENTER">
+                <Label text="NEXT"/>
+                <Canvas fx:id="next"
+                        width="120"
+                        height="120"/>
+            </VBox>
+
+            <GridPane hgap="10" vgap="10">
+                <columnConstraints>
+                    <ColumnConstraints percentWidth="50"/>
+                    <ColumnConstraints percentWidth="50"/>
+                </columnConstraints>
+
+                <Label text="Score:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                <Label fx:id="scoreLabel"
+                       text="0"
+                       GridPane.rowIndex="0"
+                       GridPane.columnIndex="1"/>
+
+                <Label text="Level:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                <Label fx:id="levelLabel"
+                       text="1"
+                       GridPane.rowIndex="1"
+                       GridPane.columnIndex="1"/>
+
+                <Label text="Lines:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                <Label fx:id="linesLabel"
+                       text="0"
+                       GridPane.rowIndex="2"
+                       GridPane.columnIndex="1"/>
+            </GridPane>
+
+            <Label fx:id="statusLabel"
+                   text="READY"
+                   alignment="CENTER"/>
+
+            <Button text="Start"
+                    fx:id="startButton"
+                    onAction="#onStart"/>
+        </VBox>
+    </right>
+</BorderPane>
