@@ -1,4 +1,3 @@
-/* (C)2026 */
 package org.bgw.tetrisfx.service;
 
 import org.bgw.tetrisfx.model.BagRandomizer;
@@ -8,25 +7,40 @@ import org.bgw.tetrisfx.model.Tetromino;
 
 public class GameEngine {
 
+    /* Core state -----------------------------------------------------*/
     private final Board board;
     private final BagRandomizer bag = new BagRandomizer();
 
-    private Tetromino current;
-    private Tetromino next;
-    private Tetromino hold;
-
+    private Tetromino current, next, hold;
     private boolean holdUsedThisTurn = false;
 
+    /* Listeners -----------------------------------------------------*/
     private GameListener listener;
     private boolean gameOver = false;
 
+    /* Score / level --------------------------------------------------*/
     private int level = 1;
-    private int score;
-    private int lines;
-    private int combo = -1;
+    private int score, lines, combo = -1;
+
+    /* Ghost cache ---------------------------------------------------*/
+    private Tetromino cachedGhost;
+    private boolean ghostValid = false;
+
+    public GameEngine(int width, int height) {
+        this.board = new Board(width, height);
+        spawn();
+    }
 
     public void setListener(GameListener listener) {
         this.listener = listener;
+    }
+
+    public boolean isGameOver() {
+        return gameOver;
+    }
+
+    public int getLevel() {
+        return level;
     }
 
     private void notifyUpdate() {
@@ -41,57 +55,43 @@ public class GameEngine {
         if (listener != null) listener.onGameOver();
     }
 
-    public GameEngine(int width, int height) {
-        this.board = new Board(width, height);
-        spawn();
-    }
-
     public void reset() {
         board.clear();
-        score = 0;
-        lines = 0;
-        level = 1;
+        score = lines = level = 1;
         combo = -1;
         hold = null;
         next = null;
+        current = null;
         gameOver = false;
-        bag.clear();
 
+        bag.clear();
         spawn();
         notifyScore();
     }
 
     private void spawn() {
-
         holdUsedThisTurn = false;
 
         if (next == null) next = new Tetromino(bag.next());
-
         current = next;
         next = new Tetromino(bag.next());
 
         current.setPosition(board.getWidth() / 2, 0);
-
         if (!board.isValidPosition(current)) {
             gameOver = true;
             notifyGameOver();
-            return;
+        } else {
+            ghostValid = false; // needs recompute
+            notifyUpdate();
         }
-
-        notifyUpdate();
     }
 
     private void updateLevel() {
         level = (lines / 10) + 1;
     }
 
-    public long getDropInterval() {
-        // Tetris guideline style gravity curve
-        return (long) (500_000_000 / Math.sqrt(level));
-    }
-
-    private int calculateScore(int linesCleared) {
-        return switch (linesCleared) {
+    private int scoreForLines(int cleared) {
+        return switch (cleared) {
             case 1 -> 100 * level;
             case 2 -> 300 * level;
             case 3 -> 500 * level;
@@ -104,82 +104,66 @@ public class GameEngine {
         if (gameOver) return;
 
         current.move(0, 1);
-
         if (!board.isValidPosition(current)) {
-            current.move(0, -1);
+            current.move(0, -1); // back to last valid spot
             board.place(current);
 
             int cleared = board.clearLines();
-
             if (cleared > 0) {
                 lines += cleared;
-                combo++;
-
-                int base = calculateScore(cleared);
-                int comboBonus = combo * 50;
-
-                score += base + comboBonus;
-
+                combo = Math.max(combo + 1, 0);
+                score += scoreForLines(cleared) + combo * 50;
                 updateLevel();
                 notifyScore();
-
             } else {
-                combo = -1;
+                combo = -1; // reset when no lines
             }
+
+            spawn(); // new piece
+        } else {
+            ghostValid = false; // movement → recompute ghost
         }
 
         notifyUpdate();
     }
 
-    public void moveLeft() {
-        current.move(-1, 0);
-        if (!board.isValidPosition(current)) current.move(1, 0);
-
-        notifyUpdate();
-    }
-
-    public void moveRight() {
-        current.move(1, 0);
-        if (!board.isValidPosition(current)) current.move(-1, 0);
-
+    public void move(int dx, int dy) {
+        current.move(dx, dy);
+        if (!board.isValidPosition(current)) current.move(-dx, -dy);
+        ghostValid = false;
         notifyUpdate();
     }
 
     public void rotate() {
         if (gameOver) return;
-
-        int oldRotation = current.getRotationIndex();
+        int oldRot = current.getRotationIndex();
         current.rotateClockwise();
 
-        int[][] kicks = SRS.getKicks(current.getType(), oldRotation);
-
-        for (int[] kick : kicks) {
-            current.move(kick[0], kick[1]);
-
+        int[][] kicks = SRS.getKicks(current.getType(), oldRot);
+        for (int[] k : kicks) {
+            current.move(k[0], k[1]);
             if (board.isValidPosition(current)) {
+                ghostValid = false;
                 notifyUpdate();
                 return;
             }
-
-            current.move(-kick[0], -kick[1]);
+            current.move(-k[0], -k[1]);
         }
 
-        // revert if all kicks fail
+        // No valid kick
         current.rotateCounterClockwise();
     }
 
     public void softDrop() {
         if (gameOver) return;
-
         current.move(0, 1);
-
         if (!board.isValidPosition(current)) {
             current.move(0, -1);
             board.place(current);
             spawn();
-            return;
+        } else {
+            ghostValid = false;
         }
-
         notifyUpdate();
     }
 
@@ -198,14 +182,12 @@ public class GameEngine {
 
         int cleared = board.clearLines();
         lines += cleared;
-
-        int base = calculateScore(cleared);
-        score += base;
+        score += scoreForLines(cleared);
         updateLevel();
         notifyScore();
 
         spawn();
-
+        ghostValid = false;
         notifyUpdate();
     }
 
@@ -213,7 +195,6 @@ public class GameEngine {
         if (gameOver || holdUsedThisTurn) return;
 
         Tetromino newCurrent;
-
         if (hold == null) {
             hold = new Tetromino(current.getType());
             newCurrent = new Tetromino(next.getType());
@@ -223,42 +204,33 @@ public class GameEngine {
             hold = new Tetromino(current.getType());
         }
 
-        newCurrent.setPosition(3, 0);
-
+        newCurrent.setPosition(board.getWidth() / 2, 0);
         if (!board.isValidPosition(newCurrent)) {
             gameOver = true;
             notifyGameOver();
-            return;
+        } else {
+            current = newCurrent;
+            holdUsedThisTurn = true;
+            ghostValid = false;
         }
-
-        current = newCurrent;
-        holdUsedThisTurn = true;
-
         notifyUpdate();
     }
 
     public Tetromino getGhost() {
-        // TODO: improve this overhead
-        //        Per-frame object allocation
-        //        Avoidable
-        //        Better:
-        //        Maintain cached ghost inside engine
-        //        Update only when piece moves
-        //        Micro-optimization but good practice.
-        Tetromino ghost = new Tetromino(current.getType());
-        ghost.setPosition(current.getX(), current.getY());
+        if (ghostValid) return cachedGhost;
 
-        while (ghost.getRotationIndex() != current.getRotationIndex()) {
-            ghost.rotateClockwise();
-        }
+        ghostValid = true;
 
-        while (board.isValidPosition(ghost)) {
-            ghost.move(0, 1);
-        }
+        Tetromino g = new Tetromino(current.getType());
+        g.setPosition(current.getX(), current.getY());
 
-        ghost.move(0, -1);
+        while (g.getRotationIndex() != current.getRotationIndex()) g.rotateClockwise();
+        while (board.isValidPosition(g)) g.move(0, 1);
 
-        return ghost;
+        g.move(0, -1);
+        cachedGhost = g;
+
+        return g;
     }
 
     public Board getBoard() {

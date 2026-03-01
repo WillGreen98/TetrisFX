@@ -32,14 +32,14 @@
 
             <VBox spacing="5" alignment="CENTER">
                 <Label text="HOLD"/>
-                <Canvas fx:id="hold"
+                <Canvas fx:id="holdCanvas"
                         width="120"
                         height="120"/>
             </VBox>
 
             <VBox spacing="5" alignment="CENTER">
                 <Label text="NEXT"/>
-                <Canvas fx:id="next"
+                <Canvas fx:id="nextCanvas"
                         width="120"
                         height="120"/>
             </VBox>

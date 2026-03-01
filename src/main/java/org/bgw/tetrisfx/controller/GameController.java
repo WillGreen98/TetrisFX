@@ -1,13 +1,14 @@
-/* (C)2026 */
 package org.bgw.tetrisfx.controller;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.EnumMap;
+import java.util.EnumSet;
+import java.util.Map;
 import javafx.animation.AnimationTimer;
 import javafx.fxml.FXML;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.control.Label;
 import javafx.scene.input.KeyCode;
+import org.bgw.tetrisfx.config.Config;
 import org.bgw.tetrisfx.model.Board;
 import org.bgw.tetrisfx.model.Tetromino;
 import org.bgw.tetrisfx.service.GameEngine;
@@ -15,40 +16,40 @@ import org.bgw.tetrisfx.service.GameListener;
 import org.bgw.tetrisfx.view.BoardRender;
 import org.bgw.tetrisfx.view.PreviewRender;
 
+/**
+ * UI controller – wires FXML nodes to the game engine.
+ */
 public class GameController implements GameListener {
-    @FXML private Canvas gameCanvas;
-    @FXML private Canvas hold;
-    @FXML private Canvas next;
-    @FXML private Label scoreLabel;
-    @FXML private Label linesLabel;
-    @FXML private Label levelLabel;
-    @FXML private Label statusLabel;
 
-    private GameEngine engine;
+    /* UI -------------------------------------------------------------*/
+    @FXML private Canvas gameCanvas;
+    @FXML private Canvas holdCanvas;
+    @FXML private Canvas nextCanvas;
+    @FXML private Label scoreLabel, linesLabel, levelLabel, statusLabel;
+
+    /* Game engine & renderers ----------------------------------------*/
+    private final GameEngine engine = new GameEngine(Config.BOARD_WIDTH, Config.BOARD_HEIGHT);
+    private final BoardRender boardRenderer = new BoardRender(Config.CELL_SIZE);
+    private final PreviewRender previewRenderer = new PreviewRender();
+
+    /* Animation loop -----------------------------------------------*/
     private AnimationTimer gameLoop;
 
-    private BoardRender renderer;
-    private PreviewRender previewRenderer;
+    /* Input state ----------------------------------------------------*/
+    private final EnumSet<KeyCode> pressed = EnumSet.noneOf(KeyCode.class);
 
-    // TODO: improve this to be an EnumSet
-    private final Set<KeyCode> pressedKeys = new HashSet<>();
-
-    // TODO: use DAS the in the
-    private static final long DAS = 150_000_000; // 150ms
-    private static final long ARR = 40_000_000; // 40ms repeat
-
-    private long lastLeftMove = 0;
-    private long lastRightMove = 0;
+    /* Per‑key timers for DAS/ARR -------------------------------------*/
+    private final Map<KeyCode, Long> lastPress = new EnumMap<>(KeyCode.class);
+    private final Map<KeyCode, Long> lastMove = new EnumMap<>(KeyCode.class);
 
     @FXML
     private void initialize() {
-        engine = new GameEngine(10, 20);
         engine.setListener(this);
+        setupInput();
+        setupGameLoop();
+    }
 
-        renderer = new BoardRender();
-        previewRenderer = new PreviewRender();
-
-        // This feels so much more responsive than before.
+    private void setupInput() {
         gameCanvas
                 .sceneProperty()
                 .addListener(
@@ -58,19 +59,58 @@ public class GameController implements GameListener {
                             scene.addEventHandler(
                                     javafx.scene.input.KeyEvent.KEY_PRESSED,
                                     e -> {
-                                        pressedKeys.add(e.getCode());
+                                        pressed.add(e.getCode());
+                                        lastPress.put(e.getCode(), System.nanoTime());
+                                        lastMove.put(e.getCode(), 0L);
                                     });
 
                             scene.addEventHandler(
                                     javafx.scene.input.KeyEvent.KEY_RELEASED,
                                     e -> {
-                                        pressedKeys.remove(e.getCode());
+                                        pressed.remove(e.getCode());
+                                        lastPress.remove(e.getCode());
+                                        lastMove.remove(e.getCode());
                                     });
 
                             gameCanvas.requestFocus();
                         });
+    }
 
-        setupGameLoop();
+    private void setupGameLoop() {
+        gameLoop =
+                new AnimationTimer() {
+
+                    private long lastTime = 0;
+                    private double accumulator = 0.0;
+
+                    @Override
+                    public void handle(long now) {
+                        if (lastTime == 0) {
+                            lastTime = now;
+                            return;
+                        }
+
+                        double deltaSec = (now - lastTime) / 1_000_000_000.0;
+                        lastTime = now;
+
+                        handleInput(now);
+
+                        double dropInterval =
+                                Config.DROP_INTERVALS[engine.getLevel() - 1] / 1_000_000_000.0;
+                        accumulator += deltaSec;
+
+                        while (accumulator >= dropInterval) {
+                            engine.tick();
+                            accumulator -= dropInterval;
+                        }
+
+                        boardRenderer.render(
+                                gameCanvas.getGraphicsContext2D(),
+                                engine.getBoard(),
+                                engine.getCurrent(),
+                                engine.getGhost());
+                    }
+                };
     }
 
     @FXML
@@ -80,99 +120,48 @@ public class GameController implements GameListener {
         gameLoop.start();
     }
 
-    private void setupGameLoop() {
-        gameLoop =
-                new AnimationTimer() {
-
-                    private long lastTime = 0;
-                    private double accumulator = 0;
-
-                    @Override
-                    public void handle(long now) {
-                        // Initialise lastTime on first frame
-                        if (lastTime == 0) {
-                            lastTime = now;
-
-                            return;
-                        }
-
-                        // Convert nanoseconds to seconds for easier math
-                        double deltaSeconds = (now - lastTime) / 1_000_000_000.0;
-                        lastTime = now;
-
-                        // Update input once per frame
-                        handleInput(now);
-
-                        // Fixed‑timestep loop (drop interval in seconds)
-                        double dropInterval = engine.getDropInterval() / 1_000_000_000.0;
-                        accumulator += deltaSeconds;
-
-                        while (accumulator >= dropInterval) {
-                            engine.tick(); // advance game logic
-                            accumulator -= dropInterval;
-                        }
-
-                        renderer.render(
-                                gameCanvas.getGraphicsContext2D(),
-                                engine.getBoard(),
-                                engine.getCurrent(),
-                                engine.getGhost(),
-                                30);
-                    }
-                };
-    }
-
-    private boolean consumeKey(KeyCode key) {
-        if (pressedKeys.contains(key)) {
-            pressedKeys.remove(key);
-            return true;
-        }
-        return false;
-    }
-
-    // TODO: fix SHIFT + key to work...
     private void handleInput(long now) {
-        // LEFT
-        if (pressedKeys.contains(KeyCode.LEFT)) {
-            if (now - lastLeftMove > ARR) {
-                engine.moveLeft();
-                lastLeftMove = now;
-            }
-        }
+        // Left / Right – DAS + ARR
+        if (pressed.contains(KeyCode.LEFT)) moveWithRepeat(now, KeyCode.LEFT, -1);
+        if (pressed.contains(KeyCode.RIGHT)) moveWithRepeat(now, KeyCode.RIGHT, 1);
 
-        // RIGHT
-        if (pressedKeys.contains(KeyCode.RIGHT)) {
-            if (now - lastRightMove > ARR) {
-                engine.moveRight();
-                lastRightMove = now;
-            }
-        }
+        // Soft drop (continuous)
+        if (pressed.contains(KeyCode.DOWN)) engine.softDrop();
 
-        // SOFT DROP (continuous)
-        if (pressedKeys.contains(KeyCode.DOWN)) {
-            engine.softDrop();
-        }
+        // Single‑press actions
+        consumeAndExecute(KeyCode.UP, engine::rotate);
+        consumeAndExecute(KeyCode.ENTER, engine::hardDrop);
+        consumeAndExecute(KeyCode.H, engine::hold);
 
-        // Single press actions
-        if (consumeKey(KeyCode.UP)) {
-            engine.rotate();
+        // Stop the loop when game over
+        if (engine.isGameOver()) {
+            gameLoop.stop();
+            statusLabel.setText("GAME OVER");
         }
+    }
 
-        if (consumeKey(KeyCode.ENTER)) {
-            engine.hardDrop();
-        }
+    private void moveWithRepeat(long now, KeyCode key, int dx) {
+        long press = lastPress.getOrDefault(key, 0L);
+        if (press == 0) return; // key not pressed
 
-        if (consumeKey(KeyCode.H)) {
-            engine.hold();
-        }
+        long last = lastMove.getOrDefault(key, 0L);
+
+        if (last == 0) engine.move(dx, 0);
+        else if (now - press > Config.DAS && now - last > Config.ARR) engine.move(dx, 0);
+
+        lastMove.put(key, now);
+    }
+
+    private void consumeAndExecute(KeyCode key, Runnable action) {
+        if (pressed.remove(key)) action.run();
     }
 
     @Override
-    public void onBoardUpdated(
-            Board board, Tetromino current, Tetromino nextPiece, Tetromino holdPiece) {
-        previewRenderer.render(next.getGraphicsContext2D(), nextPiece, (int) next.getWidth());
-
-        previewRenderer.render(hold.getGraphicsContext2D(), holdPiece, (int) hold.getWidth());
+    public void onBoardUpdated(Board board, Tetromino current, Tetromino next, Tetromino hold) {
+        previewRenderer.render(
+                nextCanvas.getGraphicsContext2D(), next, (int) nextCanvas.getWidth());
+        previewRenderer.render(
+                holdCanvas.getGraphicsContext2D(), hold, (int) holdCanvas.getWidth());
     }
 
     @Override
@@ -184,7 +173,6 @@ public class GameController implements GameListener {
 
     @Override
     public void onGameOver() {
-        // Set gameover state to be true
         statusLabel.setText("GAME OVER");
     }
 }
