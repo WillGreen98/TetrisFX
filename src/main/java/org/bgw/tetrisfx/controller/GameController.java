@@ -95,8 +95,13 @@ public class GameController implements GameListener {
 
                         handleInput(now);
 
+                        int levelIndex = Math.min(
+                                engine.getLevel() - 1,
+                                Config.DROP_INTERVALS.length - 1
+                        );
+
                         double dropInterval =
-                                Config.DROP_INTERVALS[engine.getLevel() - 1] / 1_000_000_000.0;
+                                Config.DROP_INTERVALS[levelIndex] / 1_000_000_000.0;
                         accumulator += deltaSec;
 
                         while (accumulator >= dropInterval) {

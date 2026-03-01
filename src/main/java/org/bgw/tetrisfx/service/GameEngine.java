@@ -57,7 +57,9 @@ public class GameEngine {
 
     public void reset() {
         board.clear();
-        score = lines = level = 1;
+        score = 0;
+        lines = 0;
+        level = 1;
         combo = -1;
         hold = null;
         next = null;
@@ -104,24 +106,12 @@ public class GameEngine {
         if (gameOver) return;
 
         current.move(0, 1);
+
         if (!board.isValidPosition(current)) {
-            current.move(0, -1); // back to last valid spot
-            board.place(current);
-
-            int cleared = board.clearLines();
-            if (cleared > 0) {
-                lines += cleared;
-                combo = Math.max(combo + 1, 0);
-                score += scoreForLines(cleared) + combo * 50;
-                updateLevel();
-                notifyScore();
-            } else {
-                combo = -1; // reset when no lines
-            }
-
-            spawn(); // new piece
+            current.move(0, -1);
+            lockPiece();
         } else {
-            ghostValid = false; // movement → recompute ghost
+            ghostValid = false;
         }
 
         notifyUpdate();
@@ -132,6 +122,25 @@ public class GameEngine {
         if (!board.isValidPosition(current)) current.move(-dx, -dy);
         ghostValid = false;
         notifyUpdate();
+    }
+
+    private void lockPiece() {
+        board.place(current);
+
+        int cleared = board.clearLines();
+
+        if (cleared > 0) {
+            lines += cleared;
+            combo = Math.max(combo + 1, 0);
+
+            score += scoreForLines(cleared) + combo * 50;
+            updateLevel();
+            notifyScore();
+        } else {
+            combo = -1;
+        }
+
+        spawn();
     }
 
     public void rotate() {
@@ -156,19 +165,25 @@ public class GameEngine {
 
     public void softDrop() {
         if (gameOver) return;
+
         current.move(0, 1);
+
         if (!board.isValidPosition(current)) {
             current.move(0, -1);
-            board.place(current);
-            spawn();
+            lockPiece();
         } else {
             ghostValid = false;
+            score += 1; // optional soft drop reward
+            notifyScore();
         }
+
         notifyUpdate();
     }
 
     public void hardDrop() {
         if (gameOver) return;
+
+        int distance = 0;
 
         while (true) {
             current.move(0, 1);
@@ -176,18 +191,15 @@ public class GameEngine {
                 current.move(0, -1);
                 break;
             }
+            distance++;
         }
 
-        board.place(current);
-
-        int cleared = board.clearLines();
-        lines += cleared;
-        score += scoreForLines(cleared);
-        updateLevel();
+        score += distance * 2; // reward hard drop distance
         notifyScore();
 
-        spawn();
+        lockPiece();
         ghostValid = false;
+
         notifyUpdate();
     }
 
