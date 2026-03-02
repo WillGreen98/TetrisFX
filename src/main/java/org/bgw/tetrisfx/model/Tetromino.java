@@ -14,6 +14,14 @@ public class Tetromino {
         this.type = type;
     }
 
+    // Specifically for Ghosting improvement
+    public Tetromino(PieceType type, int rotationIndex, int x, int y) {
+        this.type = type;
+        this.rotationIndex = rotationIndex;
+        this.x = x;
+        this.y = y;
+    }
+
     public void rotateClockwise() {
         rotationIndex = (rotationIndex + 1) % 4;
     }

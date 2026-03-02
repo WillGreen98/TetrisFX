@@ -11,8 +11,4 @@ module org.bgw.tetrisfx {
 
     opens org.bgw.tetrisfx.controller to
             javafx.fxml;
-
-    exports org.bgw.tetrisfx.model;
-    exports org.bgw.tetrisfx.view;
-    exports org.bgw.tetrisfx.service;
 }

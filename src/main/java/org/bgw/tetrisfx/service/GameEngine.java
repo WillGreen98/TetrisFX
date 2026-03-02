@@ -1,9 +1,7 @@
 package org.bgw.tetrisfx.service;
 
-import org.bgw.tetrisfx.model.BagRandomizer;
-import org.bgw.tetrisfx.model.Board;
-import org.bgw.tetrisfx.model.SRS;
-import org.bgw.tetrisfx.model.Tetromino;
+import org.bgw.tetrisfx.dto.GameSnapshot;
+import org.bgw.tetrisfx.model.*;
 
 public class GameEngine {
 
@@ -11,12 +9,13 @@ public class GameEngine {
     private final Board board;
     private final BagRandomizer bag = new BagRandomizer();
 
-    private Tetromino current, next, hold;
+    private Tetromino current;
+    private PieceType next;
+    private PieceType hold;
     private boolean holdUsedThisTurn = false;
 
-    /* Listeners -----------------------------------------------------*/
-    private GameListener listener;
-    private boolean gameOver = false;
+    /* State ----------------------------------------------------------*/
+    private GameState state = GameState.RUNNING;
 
     /* Score / level --------------------------------------------------*/
     private int level = 1;
@@ -31,28 +30,8 @@ public class GameEngine {
         spawn();
     }
 
-    public void setListener(GameListener listener) {
-        this.listener = listener;
-    }
-
-    public boolean isGameOver() {
-        return gameOver;
-    }
-
     public int getLevel() {
         return level;
-    }
-
-    private void notifyUpdate() {
-        if (listener != null) listener.onBoardUpdated(board, current, next, hold);
-    }
-
-    private void notifyScore() {
-        if (listener != null) listener.onScoreUpdated(score, lines, level);
-    }
-
-    private void notifyGameOver() {
-        if (listener != null) listener.onGameOver();
     }
 
     public void reset() {
@@ -61,31 +40,32 @@ public class GameEngine {
         lines = 0;
         level = 1;
         combo = -1;
+
         hold = null;
         next = null;
         current = null;
-        gameOver = false;
+        holdUsedThisTurn = false;
+
+        state = GameState.RUNNING;
 
         bag.clear();
         spawn();
-        notifyScore();
     }
 
     private void spawn() {
+        if (next == null) next = bag.next();
+        if (next == null) throw new IllegalStateException("Next piece is null");
+
         holdUsedThisTurn = false;
 
-        if (next == null) next = new Tetromino(bag.next());
-        current = next;
-        next = new Tetromino(bag.next());
+        current = new Tetromino(next);
+        next = bag.next();
 
-        current.setPosition(board.getWidth() / 2, 0);
-        if (!board.isValidPosition(current)) {
-            gameOver = true;
-            notifyGameOver();
-        } else {
-            ghostValid = false; // needs recompute
-            notifyUpdate();
-        }
+        int spawnX = (board.getWidth() - current.getShape()[0].length) / 2;
+        current.setPosition(spawnX, 0);
+
+        if (!board.isValidPosition(current)) state = GameState.GAME_OVER;
+        else ghostValid = false;
     }
 
     private void updateLevel() {
@@ -103,7 +83,7 @@ public class GameEngine {
     }
 
     public void tick() {
-        if (gameOver) return;
+        if (state == GameState.GAME_OVER) return;
 
         current.move(0, 1);
 
@@ -113,15 +93,20 @@ public class GameEngine {
         } else {
             ghostValid = false;
         }
-
-        notifyUpdate();
     }
 
-    public void move(int dx, int dy) {
-        current.move(dx, dy);
-        if (!board.isValidPosition(current)) current.move(-dx, -dy);
+    void move(int dx) {
+        current.move(dx, 0);
+        if (!board.isValidPosition(current)) current.move(-dx, -0);
         ghostValid = false;
-        notifyUpdate();
+    }
+
+    public void moveLeft() {
+        move(-1);
+    }
+
+    public void moveRight() {
+        move(1);
     }
 
     private void lockPiece() {
@@ -135,7 +120,6 @@ public class GameEngine {
 
             score += scoreForLines(cleared) + combo * 50;
             updateLevel();
-            notifyScore();
         } else {
             combo = -1;
         }
@@ -144,7 +128,7 @@ public class GameEngine {
     }
 
     public void rotate() {
-        if (gameOver) return;
+        if (state == GameState.GAME_OVER) return;
         int oldRot = current.getRotationIndex();
         current.rotateClockwise();
 
@@ -153,7 +137,6 @@ public class GameEngine {
             current.move(k[0], k[1]);
             if (board.isValidPosition(current)) {
                 ghostValid = false;
-                notifyUpdate();
                 return;
             }
             current.move(-k[0], -k[1]);
@@ -164,7 +147,7 @@ public class GameEngine {
     }
 
     public void softDrop() {
-        if (gameOver) return;
+        if (state == GameState.GAME_OVER) return;
 
         current.move(0, 1);
 
@@ -174,14 +157,11 @@ public class GameEngine {
         } else {
             ghostValid = false;
             score += 1; // optional soft drop reward
-            notifyScore();
         }
-
-        notifyUpdate();
     }
 
     public void hardDrop() {
-        if (gameOver) return;
+        if (state == GameState.GAME_OVER) return;
 
         int distance = 0;
 
@@ -195,37 +175,37 @@ public class GameEngine {
         }
 
         score += distance * 2; // reward hard drop distance
-        notifyScore();
 
         lockPiece();
         ghostValid = false;
-
-        notifyUpdate();
     }
 
     public void hold() {
-        if (gameOver || holdUsedThisTurn) return;
+        if (state == GameState.GAME_OVER || holdUsedThisTurn) return;
 
-        Tetromino newCurrent;
+        PieceType newCurrentType;
+
         if (hold == null) {
-            hold = new Tetromino(current.getType());
-            newCurrent = new Tetromino(next.getType());
-            next = new Tetromino(bag.next());
+            hold = current.getType();
+            newCurrentType = next;
+            next = bag.next();
         } else {
-            newCurrent = new Tetromino(hold.getType());
-            hold = new Tetromino(current.getType());
+            newCurrentType = hold;
+            hold = current.getType();
         }
 
-        newCurrent.setPosition(board.getWidth() / 2, 0);
+        Tetromino newCurrent = new Tetromino(newCurrentType);
+
+        int spawnX = (board.getWidth() - newCurrent.getShape()[0].length) / 2;
+        newCurrent.setPosition(spawnX, 0);
+
         if (!board.isValidPosition(newCurrent)) {
-            gameOver = true;
-            notifyGameOver();
+            state = GameState.GAME_OVER;
         } else {
             current = newCurrent;
             holdUsedThisTurn = true;
             ghostValid = false;
         }
-        notifyUpdate();
     }
 
     public Tetromino getGhost() {
@@ -233,11 +213,16 @@ public class GameEngine {
 
         ghostValid = true;
 
-        Tetromino g = new Tetromino(current.getType());
-        g.setPosition(current.getX(), current.getY());
+        Tetromino g =
+                new Tetromino(
+                        current.getType(),
+                        current.getRotationIndex(),
+                        current.getX(),
+                        current.getY());
 
-        while (g.getRotationIndex() != current.getRotationIndex()) g.rotateClockwise();
-        while (board.isValidPosition(g)) g.move(0, 1);
+        while (board.isValidPosition(g)) {
+            g.move(0, 1);
+        }
 
         g.move(0, -1);
         cachedGhost = g;
@@ -245,11 +230,44 @@ public class GameEngine {
         return g;
     }
 
-    public Board getBoard() {
-        return board;
+    private PieceType[][] copyGrid() {
+        PieceType[][] src = new PieceType[board.getHeight()][board.getWidth()];
+        for (int y = 0; y < board.getHeight(); y++) {
+            for (int x = 0; x < board.getWidth(); x++) {
+                src[y][x] = board.getCell(x, y);
+            }
+        }
+        return src;
     }
 
-    public Tetromino getCurrent() {
-        return current;
+    private Tetromino copy(Tetromino t) {
+        if (t == null) return null;
+
+        return new Tetromino(t.getType(), t.getRotationIndex(), t.getX(), t.getY());
+    }
+
+    public GameSnapshot snapshot() {
+        return new GameSnapshot(
+                copyGrid(),
+                copy(current),
+                copy(getGhost()),
+                next == null ? null : new Tetromino(next),
+                hold == null ? null : new Tetromino(hold),
+                score,
+                lines,
+                level,
+                state);
+    }
+
+    public int getScore() {
+        return score;
+    }
+
+    public int getLines() {
+        return lines;
+    }
+
+    public GameState getState() {
+        return state;
     }
 }

@@ -2,7 +2,6 @@ package org.bgw.tetrisfx.view;
 
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
-import org.bgw.tetrisfx.model.Board;
 import org.bgw.tetrisfx.model.PieceType;
 import org.bgw.tetrisfx.model.Tetromino;
 
@@ -17,32 +16,33 @@ public class BoardRender {
         this.cellSize = cellSize;
     }
 
-    public void render(GraphicsContext gc, Board board, Tetromino current, Tetromino ghost) {
+    public void render(GraphicsContext gc, PieceType[][] grid, Tetromino current, Tetromino ghost) {
+        int height = grid.length;
+        int width = grid[0].length;
 
-        int width = board.getWidth() * this.cellSize;
-        int height = board.getHeight() * this.cellSize;
+        int pixelWidth = width * cellSize;
+        int pixelHeight = height * cellSize;
 
-        gc.clearRect(0, 0, width, height);
+        gc.clearRect(0, 0, pixelWidth, pixelHeight);
         gc.setFill(BG_COLOR);
-        gc.fillRect(0, 0, width, height);
+        gc.fillRect(0, 0, pixelWidth, pixelHeight);
 
-        /* grid */
+        // Grid
         gc.setStroke(GRID_COLOR);
-        for (int x = 0; x <= board.getWidth(); x++)
-            gc.strokeLine(x * this.cellSize, 0, x * this.cellSize, height);
-        for (int y = 0; y <= board.getHeight(); y++)
-            gc.strokeLine(0, y * this.cellSize, width, y * this.cellSize);
+        for (int x = 0; x <= width; x++) gc.strokeLine(x * cellSize, 0, x * cellSize, pixelHeight);
+        for (int y = 0; y <= height; y++) gc.strokeLine(0, y * cellSize, pixelWidth, y * cellSize);
 
-        /* locked pieces */
-        PieceType[][] grid = board.getGrid();
-        for (int y = 0; y < board.getHeight(); y++)
-            for (int x = 0; x < board.getWidth(); x++)
-                if (grid[y][x] != null) {
-                    gc.setFill(grid[y][x].getColor());
-                    gc.fillRect(x * this.cellSize, y * this.cellSize, this.cellSize, this.cellSize);
+        // Locked pieces
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                PieceType cell = grid[y][x];
+                if (cell != null) {
+                    gc.setFill(cell.getColor());
+                    gc.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
                 }
+            }
+        }
 
-        /* ghost */
         if (ghost != null) {
             gc.save();
             gc.setGlobalAlpha(GHOST_ALPHA);
@@ -50,8 +50,9 @@ public class BoardRender {
             gc.restore();
         }
 
-        /* current */
-        drawPiece(gc, current);
+        if (current != null) {
+            drawPiece(gc, current);
+        }
     }
 
     private void drawPiece(GraphicsContext gc, Tetromino piece) {

@@ -86,15 +86,18 @@ public class Board {
         }
 
         for (int y = row; y > 0; y--) {
-            // grid[y] = grid[y - 1].clone();
             System.arraycopy(grid[y - 1], 0, grid[y], 0, width);
         }
 
         grid[0] = new PieceType[width];
     }
 
-    public PieceType[][] getGrid() {
-        return grid;
+    public PieceType getCell(int x, int y) {
+        if (x < 0 || x >= width || y < 0 || y >= height) {
+            throw new IndexOutOfBoundsException();
+        }
+
+        return grid[y][x];
     }
 
     public int getWidth() {

@@ -7,9 +7,17 @@ public class BagRandomizer {
     private final Queue<PieceType> bag = new ArrayDeque<>();
 
     public PieceType next() {
-        if (bag.isEmpty()) refill();
+        if (bag.isEmpty()) {
+            refill();
+        }
 
-        return bag.poll();
+        PieceType piece = bag.poll();
+
+        if (piece == null) {
+            throw new IllegalStateException("BagRandomizer failed to provide piece");
+        }
+
+        return piece;
     }
 
     public void clear() {
