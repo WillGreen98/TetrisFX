@@ -1,0 +1,74 @@
+.root {
+    -fx-background-color: linear-gradient(to bottom, #0f1510, #050805);
+    -fx-font-family: "JetBrains Mono", "Consolas", monospace;
+}
+
+.game-board {
+    -fx-background-color: #000000;
+    -fx-border-color: #1e3d1e;
+    -fx-border-width: 2;
+}
+
+.side-panel {
+    -fx-background-color: linear-gradient(to bottom, #0c120c, #060806);
+    -fx-border-color: #1e3d1e;
+    -fx-border-width: 0 0 0 2;
+}
+
+.label {
+    -fx-text-fill: #d9e7d9;
+    -fx-font-size: 14px;
+}
+
+.section-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #6edc8c;
+}
+
+/* Score values */
+.value {
+    -fx-font-weight: bold;
+    -fx-text-fill: #4dff9c;
+}
+
+#statusLabel {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #7cffb0;
+}
+
+.score-panel {
+    -fx-padding: 10;
+    -fx-background-color: rgba(10, 25, 10, 0.35);
+    -fx-border-color: #1f5c3a;
+    -fx-border-radius: 4;
+}
+
+.preview-canvas {
+    -fx-border-color: #2f6b45;
+    -fx-border-width: 1;
+    -fx-background-color: #111811;
+}
+
+.button {
+    -fx-background-color: linear-gradient(#1f5c3a, #153d27);
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-padding: 8 18 8 18;
+    -fx-border-color: #2a7d4f;
+    -fx-border-radius: 4;
+}
+
+.button:hover {
+    -fx-background-color: linear-gradient(#2b7a4d, #1d5034);
+}
+
+.button:pressed {
+    -fx-background-color: #12351f;
+}
+
+.canvas {
+    -fx-border-color: #1e3d1e;
+    -fx-border-width: 1;
+}

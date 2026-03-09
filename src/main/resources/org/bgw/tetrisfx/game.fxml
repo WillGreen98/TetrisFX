@@ -8,9 +8,11 @@
 <BorderPane xmlns:fx="http://javafx.com/fxml"
             fx:controller="org.bgw.tetrisfx.controller.GameController"
             prefWidth="600"
-            prefHeight="640">
+            prefHeight="640"
+            stylesheets="@game.css">
+
     <center>
-        <StackPane>
+        <StackPane styleClass="game-board">
             <padding>
                 <Insets top="20" right="20" bottom="20" left="20"/>
             </padding>
@@ -24,47 +26,58 @@
     <right>
         <VBox spacing="25"
               alignment="TOP_CENTER"
-              prefWidth="200">
+              prefWidth="200"
+              styleClass="side-panel">
 
             <padding>
                 <Insets top="20" right="20" bottom="20" left="20"/>
             </padding>
 
             <VBox spacing="5" alignment="CENTER">
-                <Label text="HOLD"/>
+                <Label text="HOLD" styleClass="section-title"/>
+
                 <Canvas fx:id="holdCanvas"
                         width="120"
-                        height="120"/>
+                        height="120"
+                        styleClass="preview-canvas"/>
             </VBox>
 
             <VBox spacing="5" alignment="CENTER">
-                <Label text="NEXT"/>
+                <Label text="NEXT" styleClass="section-title"/>
+
                 <Canvas fx:id="nextCanvas"
                         width="120"
-                        height="120"/>
+                        height="120"
+                        styleClass="preview-canvas"/>
             </VBox>
 
-            <GridPane hgap="10" vgap="10">
+            <GridPane hgap="10" vgap="10" styleClass="score-panel">
                 <columnConstraints>
                     <ColumnConstraints percentWidth="50"/>
                     <ColumnConstraints percentWidth="50"/>
                 </columnConstraints>
 
                 <Label text="Score:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+
                 <Label fx:id="scoreLabel"
                        text="0"
+                       styleClass="value"
                        GridPane.rowIndex="0"
                        GridPane.columnIndex="1"/>
 
                 <Label text="Level:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+
                 <Label fx:id="levelLabel"
                        text="1"
+                       styleClass="value"
                        GridPane.rowIndex="1"
                        GridPane.columnIndex="1"/>
 
                 <Label text="Lines:" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+
                 <Label fx:id="linesLabel"
                        text="0"
+                       styleClass="value"
                        GridPane.rowIndex="2"
                        GridPane.columnIndex="1"/>
             </GridPane>
@@ -75,7 +88,8 @@
 
             <Button text="Start"
                     fx:id="startButton"
-                    onAction="#onStart"/>
+                    onAction="#onStart"
+                    maxWidth="Infinity"/>
         </VBox>
     </right>
 </BorderPane>
