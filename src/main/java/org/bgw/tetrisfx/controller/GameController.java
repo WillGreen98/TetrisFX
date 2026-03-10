@@ -45,8 +45,11 @@ public class GameController {
     @FXML
     private void initialize() {
         engine = new GameEngine(Config.BOARD_WIDTH, Config.BOARD_HEIGHT);
+
         setupInput();
         setupGameLoop();
+
+        gameLoop.start();
     }
 
     private void setupInput() {
@@ -84,6 +87,16 @@ public class GameController {
                         });
     }
 
+    private void updateStatus() {
+        statusLabel.setText(
+                switch(engine.getState()) {
+                    case RUNNING -> "RUNNING";
+                    case PAUSED -> "PAUSED";
+                    case GAME_OVER -> "GAME OVER";
+                }
+        );
+    }
+
     private void setupGameLoop() {
         gameLoop =
                 new AnimationTimer() {
@@ -119,7 +132,7 @@ public class GameController {
                         levelLabel.setText(String.valueOf(engine.getLevel()));
 
                         if (engine.getState() == GameState.GAME_OVER) {
-                            statusLabel.setText("GAME OVER");
+                            updateStatus();
                             gameLoop.stop();
                         }
 
@@ -145,12 +158,25 @@ public class GameController {
 
     @FXML
     private void onStart() {
-        engine.reset();
-        statusLabel.setText("READY");
-        gameLoop.start();
+        if (engine.getState() == GameState.GAME_OVER) engine.reset();
+        if (engine.isPaused()) engine.resume();
+
+        updateStatus();
+
+        if (gameLoop != null) gameLoop.start();
+    }
+
+    @FXML
+    private void onPause() {
+        if (!engine.isRunning()) return;
+
+        engine.pause();
+        updateStatus();
     }
 
     private void handleInput(long now) {
+        if (!engine.isRunning()) return;
+
         // Left / Right – DAS + ARR
         if (pressed.contains(KeyCode.LEFT)) moveWithRepeat(now, KeyCode.LEFT, engine::moveLeft);
         if (pressed.contains(KeyCode.RIGHT)) moveWithRepeat(now, KeyCode.RIGHT, engine::moveRight);

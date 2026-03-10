@@ -83,7 +83,7 @@ public class GameEngine {
     }
 
     public void tick() {
-        if (state == GameState.GAME_OVER) return;
+        if (state != GameState.RUNNING) return;
 
         current.move(0, 1);
 
@@ -269,5 +269,25 @@ public class GameEngine {
 
     public GameState getState() {
         return state;
+    }
+
+    public void pause() {
+        if (state == GameState.RUNNING) {
+            state = GameState.PAUSED;
+        }
+    }
+
+    public void resume() {
+        if (state == GameState.PAUSED) {
+            state = GameState.RUNNING;
+        }
+    }
+
+    public boolean isRunning() {
+        return state == GameState.RUNNING;
+    }
+
+    public boolean isPaused() {
+        return state == GameState.PAUSED;
     }
 }

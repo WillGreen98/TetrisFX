@@ -90,6 +90,11 @@
                     fx:id="startButton"
                     onAction="#onStart"
                     maxWidth="Infinity"/>
+
+            <Button text="Pause"
+                    fx:id="pauseButton"
+                    onAction="#onPause"
+                    maxWidth="Infinity"/>
         </VBox>
     </right>
 </BorderPane>
